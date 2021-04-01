@@ -9,34 +9,54 @@
 #define MHZ(x) ((long long)(x*1000000.0 + .5))
 #define GHZ(x) ((long long)(x*1000000000.0 + .5))
 
+#define IIO_ENSURE(expr) { \
+    if (!(expr)) { \
+        (void) fprintf(stderr, "assertion failed (%s:%d)\n", __FILE__, __LINE__); \
+        (void) abort(); \
+    } \
+}
+
+/* RX is input, TX is output */
+enum iodev { RX, TX };
+
+/* common RX and TX streaming params */
+struct stream_cfg {
+    long long bw_hz; // Analog banwidth in Hz
+    long long fs_hz; // Baseband sample rate in Hz
+    long long lo_hz; // Local oscillator frequency in Hz
+    const char* rfport; // Port name
+};
+
+/* static scratch mem for strings */
+static char tmpstr[64];
+
+/* IIO structs required for streaming */
+static struct iio_context *ctx   = NULL;
+static struct iio_channel *rx0_i = NULL;
+static struct iio_channel *rx0_q = NULL;
+static struct iio_channel *tx0_i = NULL;
+static struct iio_channel *tx0_q = NULL;
+static struct iio_buffer  *rxbuf = NULL;
+static struct iio_buffer  *txbuf = NULL;
+
+static bool stop;
+
 
 static void handle_sig(int sig);
 static void shutdown();
 
-/* write attribute: long long int */
-static void wr_ch_lli(struct iio_channel *chn, const char* what, long long val);
+static void errchk(int v, const char* what);                                                        /* check return value of attr_write function */
+static void wr_ch_lli(struct iio_channel *chn, const char* what, long long val);                    /* write attribute: long long int */
+static void wr_ch_str(struct iio_channel *chn, const char* what, const char* str);                  /* write attribute: string */
 
-/* write attribute: string */
-static void wr_ch_str(struct iio_channel *chn, const char* what, const char* str);
+static struct iio_device* get_ad9361_phy(struct iio_context *ctx);                                  /* returns ad9361 phy device */
+static bool get_ad9361_stream_dev(struct iio_context *ctx, enum iodev d, struct iio_device **dev);  /* finds AD9361 streaming IIO devices */
+static bool get_ad9361_stream_ch(__notused struct iio_context *ctx, enum iodev d, struct iio_device *dev, int chid, struct iio_channel **chn);  /* finds AD9361 streaming IIO channels */
+static char* get_ch_name(const char* type, int id);                                                         /* helper function generating channel names */
+static bool get_phy_chan(struct iio_context *ctx, enum iodev d, int chid, struct iio_channel **chn);        /* finds AD9361 phy IIO configuration channel with id chid */
+static bool get_lo_chan(struct iio_context *ctx, enum iodev d, struct iio_channel **chn);                   /* finds AD9361 local oscillator IIO configuration channels */
 
-/* helper function generating channel names */
-static char* get_ch_name(const char* type, int id);
-
-/* returns ad9361 phy device */
-static struct iio_device* get_ad9361_phy(struct iio_context *ctx);
-
-/* finds AD9361 streaming IIO devices */
-static bool get_ad9361_stream_dev(struct iio_context *ctx, enum iodev d, struct iio_device **dev);
-
-/* finds AD9361 streaming IIO channels */
-static bool get_ad9361_stream_ch(__notused struct iio_context *ctx, enum iodev d, struct iio_device *dev, int chid, struct iio_channel **chn);
-
-/* finds AD9361 phy IIO configuration channel with id chid */
-static bool get_phy_chan(struct iio_context *ctx, enum iodev d, int chid, struct iio_channel **chn);
-/* finds AD9361 local oscillator IIO configuration channels */
-static bool get_lo_chan(struct iio_context *ctx, enum iodev d, struct iio_channel **chn);
-/* applies streaming configuration through IIO */
-bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, enum iodev type, int chid);
+bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, enum iodev type, int chid);   /* applies streaming configuration through IIO */
 
 
 
@@ -59,19 +79,19 @@ int main(void)
     signal(SIGINT, handle_sig);
 
     // RX stream config
-    rxcfg.bw_hz = MHZ(2);   // 2 MHz rf bandwidth
-    rxcfg.fs_hz = MHZ(2.5);   // 2.5 MS/s rx sample rate
-    rxcfg.lo_hz = GHZ(2.5); // 2.5 GHz rf frequency
-    rxcfg.rfport = "A_BALANCED"; // port A (select for rf freq.)
+    rxcfg.bw_hz = MHZ(2);         // 2 MHz rf bandwidth
+    rxcfg.fs_hz = MHZ(2.5);       // 2.5 MS/s rx sample rate
+    rxcfg.lo_hz = GHZ(2.5);       // 2.5 GHz rf frequency
+    rxcfg.rfport = "A_BALANCED";  // port A (select for rf freq.)
 
     // TX stream config
-    txcfg.bw_hz = MHZ(1.5); // 1.5 MHz rf bandwidth
-    txcfg.fs_hz = MHZ(2.5);   // 2.5 MS/s tx sample rate
-    txcfg.lo_hz = GHZ(2.5); // 2.5 GHz rf frequency
-    txcfg.rfport = "A"; // port A (select for rf freq.)
+    txcfg.bw_hz = MHZ(1.5);     // 1.5 MHz rf bandwidth
+    txcfg.fs_hz = MHZ(2.5);     // 2.5 MS/s tx sample rate
+    txcfg.lo_hz = GHZ(2.5);     // 2.5 GHz rf frequency
+    txcfg.rfport = "A";         // port A (select for rf freq.)
 
     printf("* Acquiring IIO context\n");
-    ctx = iio_create_context_from_uri('ip_here');
+    ctx = iio_create_context_from_uri("ip:<pluto_ip_here>");
 
     printf("* Acquiring AD9361 streaming devices\n");
     get_ad9361_stream_dev(ctx, TX, &tx);
@@ -82,7 +102,7 @@ int main(void)
     cfg_ad9361_streaming_ch(ctx, &txcfg, TX, 0);
 
     printf("* Initializing AD9361 IIO streaming channels\n");
-    get_ad9361_stream_ch(ctx, RX, rx, 0, &rx0_i) && "RX chan i not found");
+    get_ad9361_stream_ch(ctx, RX, rx, 0, &rx0_i);
     get_ad9361_stream_ch(ctx, RX, rx, 1, &rx0_q);
     get_ad9361_stream_ch(ctx, TX, tx, 0, &tx0_i);
     get_ad9361_stream_ch(ctx, TX, tx, 1, &tx0_q);
@@ -179,6 +199,11 @@ static void shutdown()
     exit(0);
 }
 
+/* check return value of attr_write function */
+static void errchk(int v, const char* what) {
+     if (v < 0) { fprintf(stderr, "Error %d writing to channel \"%s\"\nvalue may not be supported.\n", v, what); shutdown(); }
+}
+
 
 /* write attribute: long long int */
 static void wr_ch_lli(struct iio_channel *chn, const char* what, long long val)
@@ -254,7 +279,7 @@ bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, en
 
     // Configure phy and lo channels
     printf("* Acquiring AD9361 phy channel %d\n", chid);
-    if (!get_phy_chan(ctx, type, chid, &chn)) {	return false; }
+    if (!get_phy_chan(ctx, type, chid, &chn)) { return false; }
     wr_ch_str(chn, "rf_port_select",     cfg->rfport);
     wr_ch_lli(chn, "rf_bandwidth",       cfg->bw_hz);
     wr_ch_lli(chn, "sampling_frequency", cfg->fs_hz);
