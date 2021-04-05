@@ -79,19 +79,19 @@ int main(void)
     signal(SIGINT, handle_sig);
 
     // RX stream config
-    rxcfg.bw_hz = MHZ(2);         // 2 MHz rf bandwidth
+    rxcfg.bw_hz = MHZ(10);        // 2 MHz rf bandwidth
     rxcfg.fs_hz = MHZ(2.5);       // 2.5 MS/s rx sample rate
-    rxcfg.lo_hz = GHZ(2.5);       // 2.5 GHz rf frequency
+    rxcfg.lo_hz = GHZ(2.44);      // 2.5 GHz rf frequency
     rxcfg.rfport = "A_BALANCED";  // port A (select for rf freq.)
 
     // TX stream config
-    txcfg.bw_hz = MHZ(1.5);     // 1.5 MHz rf bandwidth
+    txcfg.bw_hz = MHZ(10);     // 1.5 MHz rf bandwidth
     txcfg.fs_hz = MHZ(2.5);     // 2.5 MS/s tx sample rate
-    txcfg.lo_hz = GHZ(2.5);     // 2.5 GHz rf frequency
+    txcfg.lo_hz = GHZ(2.44);     // 2.5 GHz rf frequency
     txcfg.rfport = "A";         // port A (select for rf freq.)
 
     printf("* Acquiring IIO context\n");
-    ctx = iio_create_context_from_uri("ip:<pluto_ip_here>");
+    ctx = iio_create_context_from_uri("ip:192.168.2.1");
 
     printf("* Acquiring AD9361 streaming devices\n");
     get_ad9361_stream_dev(ctx, TX, &tx);
@@ -160,6 +160,17 @@ int main(void)
             // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
             ((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
             ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)
+        }
+
+        p_inc = iio_buffer_step(rxbuf);
+        p_end = iio_buffer_end(rxbuf);
+        for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
+            // Example: fill with zeros
+            // 12-bit sample needs to be MSB aligned so shift by 4
+            // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
+            /*((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
+            ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)*/
+            printf("RxData - Real = %d, Imag = %d\n", ((int16_t)p_dat[0]), ((int16_t)p_dat[1]) );
         }
 
         // Sample counter increment and status output
