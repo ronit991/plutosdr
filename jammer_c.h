@@ -1,11 +1,13 @@
 #ifndef JAMMER_C_H
 #define JAMMER_C_H
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <signal.h>
-#include <stdio.h>
 #include <iio.h>
 
 
