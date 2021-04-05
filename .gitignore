@@ -1,0 +1,9 @@
+*.out
+*.o
+*Test.c
+Test*.c
+*test.c
+test*.c
+libini/
+plutosdr/
+python/
