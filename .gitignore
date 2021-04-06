@@ -1,3 +1,4 @@
+*.m
 *.out
 *.o
 *Test.c

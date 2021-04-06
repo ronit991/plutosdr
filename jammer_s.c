@@ -1,7 +1,17 @@
 #include "jammer_c.h"
+#include <time.h>
+
+#define noise_signal_length 10000
+#define noise_mean          0
+#define noise_power_w       1
+#define noise_std_dev       sqrt(noise_power_w)
+
+void fill_TxBuffer_With_NoiseBPSK(void);
 
 int main(void)
 {
+    srand(time(0));         // Seed for random num generator. This is used to create noise.
+
     // Streaming devices
     struct iio_device *tx;
     struct iio_device *rx;
@@ -90,27 +100,10 @@ int main(void)
             ((int16_t*)p_dat)[1] = i;
         }
 
-        // WRITE: Get pointers to TX buf and write IQ to TX buf port 0
-        p_inc = iio_buffer_step(txbuf);
-        p_end = iio_buffer_end(txbuf);
-        for (p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc) {
-            // Example: fill with zeros
-            // 12-bit sample needs to be MSB aligned so shift by 4
-            // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-            ((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
-            ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)
-        }
+        fill_TxBuffer_With_NoiseBPSK();
+        
 
-        p_inc = iio_buffer_step(rxbuf);
-        p_end = iio_buffer_end(rxbuf);
-        for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
-            // Example: fill with zeros
-            // 12-bit sample needs to be MSB aligned so shift by 4
-            // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-            /*((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
-            ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)*/
-            printf("RxData - Real = %d, Imag = %d\n", ((int16_t)p_dat[0]), ((int16_t)p_dat[1]) );
-        }
+
 
         // Sample counter increment and status output
         nrx += nbytes_rx / iio_device_get_sample_size(rx);
@@ -121,4 +114,38 @@ int main(void)
     shutdown();
 
     return 0;
+}
+
+
+void fill_TxBuffer_With_NoiseBPSK(void)
+{
+    int noise[noise_signal_length];
+    int random_number, i;
+
+    for(i = 0; i < noise_signal_length; i++)
+    {
+        random_number = rand();
+        if(random_number > 0)
+            noise[i] = 1;
+        else
+            noise[i] = -1;
+    }
+
+
+    char *p_dat, *p_end;
+    ptrdiff_t p_inc;
+
+    // WRITE: Get pointers to TX buf and write IQ to TX buf port 0
+    p_inc = iio_buffer_step(txbuf);
+    p_end = iio_buffer_end(txbuf);
+    for(i = 0, p_dat = (char *)iio_buffer_first(txbuf, tx0_i); p_dat < p_end; p_dat += p_inc, i++)
+    {
+        // 12-bit sample needs to be MSB aligned so shift by 4
+        // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
+        ((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
+        ((int16_t*)p_dat)[1] = noise[i] << 4; // Imag (Q)
+        /* Since we are BPSK modulating our noise, the real part is 0, and the imaginary part
+         * is either iota(1) or -iota(-1). This is generated in the previous loop randomly &
+         * is stored in the noise array.    */
+    }
 }
