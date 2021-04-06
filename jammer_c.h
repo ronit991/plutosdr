@@ -10,13 +10,29 @@
 #include <signal.h>
 #include <iio.h>
 
+#define NOT     !
+#define AND     &&
+#define OR      ||
 
-#define GPS_Fc  15752000000
+#define MHZ(x)  ((long long)(x*1000000.0 + .5))
+#define GHZ(x)  ((long long)(x*1000000000.0 + .5))
 
-/* helper macros */
-#define MHZ(x) ((long long)(x*1000000.0 + .5))
-#define GHZ(x) ((long long)(x*1000000000.0 + .5))
 
+/**************************** Pluto Configuration Parameters *****************************/
+#define GPS_Fc  GHZ(1.5752)
+#define ISM_Fc  GHZ(2.44)
+
+#define PlutoTx_Fc          ISM_Fc
+#define PlutoTx_Bandwidth   MHZ(10)
+#define PlutoTx_SampleRate  MHZ(2.5)
+
+#define PlutoRx_Fc          ISM_Fc
+#define PlutoRx_Bandwidth   MHZ(10)
+#define PlutoRx_SampleRate  MHZ(2.5)
+
+
+
+/* ************************************************************************************* */
 #define IIO_ENSURE(expr) { \
     if (!(expr)) { \
         (void) fprintf(stderr, "assertion failed (%s:%d)\n", __FILE__, __LINE__); \
@@ -28,7 +44,6 @@
 
 /* RX is input, TX is output */
 enum iodev { RX, TX };
-
 
 
 /* common RX and TX streaming params */

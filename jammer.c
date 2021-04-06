@@ -162,16 +162,16 @@ int main(void)
             ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)
         }
 
-        p_inc = iio_buffer_step(rxbuf);
-        p_end = iio_buffer_end(rxbuf);
-        for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
-            // Example: fill with zeros
-            // 12-bit sample needs to be MSB aligned so shift by 4
-            // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
-            /*((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
-            ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)*/
-            printf("RxData - Real = %d, Imag = %d\n", ((int16_t)p_dat[0]), ((int16_t)p_dat[1]) );
-        }
+        // p_inc = iio_buffer_step(rxbuf);
+        // p_end = iio_buffer_end(rxbuf);
+        // for (p_dat = (char *)iio_buffer_first(rxbuf, rx0_i); p_dat < p_end; p_dat += p_inc) {
+        //     // Example: fill with zeros
+        //     // 12-bit sample needs to be MSB aligned so shift by 4
+        //     // https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms2-ebz/software/basic_iq_datafiles#binary_format
+        //     /*((int16_t*)p_dat)[0] = 0 << 4; // Real (I)
+        //     ((int16_t*)p_dat)[1] = 0 << 4; // Imag (Q)*/
+        //     printf("RxData - Real = %d, Imag = %d\n", ((int16_t)p_dat[0]), ((int16_t)p_dat[1]) );
+        // }
 
         // Sample counter increment and status output
         nrx += nbytes_rx / iio_device_get_sample_size(rx);

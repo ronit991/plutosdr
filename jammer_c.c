@@ -20,20 +20,21 @@ struct iio_buffer  *txbuf = NULL;
 
 void configure_pluto(struct iio_device *tx, struct iio_device *rx)
 {
+    printf("Configuring Pluto SDR...\n");
     // Stream configurations
     struct stream_cfg rxcfg;
     struct stream_cfg txcfg;
 
     // RX stream config
-    rxcfg.bw_hz = MHZ(10);        // 2 MHz rf bandwidth
-    rxcfg.fs_hz = MHZ(2.5);       // 2.5 MS/s rx sample rate
-    rxcfg.lo_hz = GHZ(2.44);      // 2.5 GHz rf frequency
+    rxcfg.lo_hz = PlutoRx_Fc;
+    rxcfg.bw_hz = PlutoRx_Bandwidth;
+    rxcfg.fs_hz = PlutoRx_SampleRate;
     rxcfg.rfport = "A_BALANCED";  // port A (select for rf freq.)
 
     // TX stream config
-    txcfg.bw_hz = MHZ(10);     // 1.5 MHz rf bandwidth
-    txcfg.fs_hz = MHZ(2.5);     // 2.5 MS/s tx sample rate
-    txcfg.lo_hz = GHZ(2.44);     // 2.5 GHz rf frequency
+    txcfg.lo_hz = PlutoTx_Fc;
+    txcfg.bw_hz = PlutoTx_Bandwidth;
+    txcfg.fs_hz = PlutoTx_SampleRate;
     txcfg.rfport = "A";         // port A (select for rf freq.)
 
     printf("* Acquiring IIO context\n");
@@ -58,6 +59,21 @@ void configure_pluto(struct iio_device *tx, struct iio_device *rx)
     iio_channel_enable(rx0_q);
     iio_channel_enable(tx0_i);
     iio_channel_enable(tx0_q);
+
+    printf("* Creating non-cyclic IIO buffers with 1 MSa(s)\n");
+    txbuf = iio_device_create_buffer(tx, 1024*1024, false);
+    rxbuf = iio_device_create_buffer(rx, 1024*1024, false);
+    
+    if (!rxbuf)
+    {
+        perror("Could not create RX buffer");
+        shutdown(1);
+    }
+    if (!txbuf)
+    {
+        perror("Could not create TX buffer");
+        shutdown(1);
+    }
 }
 
 
