@@ -58,7 +58,7 @@ extern bool stop;
 
 
 void handle_sig(int sig);
-void shutdown();
+void shutdown(int exitCode);
 
 void errchk(int v, const char* what);                                                        /* check return value of attr_write function */
 void wr_ch_lli(struct iio_channel *chn, const char* what, long long val);                    /* write attribute: long long int */
@@ -73,6 +73,6 @@ bool get_lo_chan(struct iio_context *ctx, enum iodev d, struct iio_channel **chn
 
 bool cfg_ad9361_streaming_ch(struct iio_context *ctx, struct stream_cfg *cfg, enum iodev type, int chid);   /* applies streaming configuration through IIO */
 
-
+void configure_pluto(struct iio_device *tx, struct iio_device *rx);
 
 #endif
