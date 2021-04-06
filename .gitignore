@@ -4,6 +4,7 @@
 Test*.c
 *test.c
 test*.c
+*Ex.c
 libini/
 plutosdr/
 python/
